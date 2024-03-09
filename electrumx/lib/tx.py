@@ -8,8 +8,8 @@
 '''Transaction-related classes and functions.'''
 
 from collections import namedtuple
-
-from electrumx.lib.hash import double_sha256, hash_to_hex_str
+from electrumx.lib import util
+from electrumx.lib.hash import double_sha256, hash_to_hex_str, sha256
 from electrumx.lib.util import (
     unpack_le_int32_from, unpack_le_int64_from, unpack_le_uint16_from,
     unpack_le_uint32_from, unpack_le_uint64_from, pack_le_int32, pack_varint,
@@ -71,6 +71,7 @@ class Deserializer:
     '''
 
     def __init__(self, buf, start=0):
+        self.logger = util.class_logger(__name__, self.__class__.__name__)
         self.view = memoryview(buf)
         self.cursor = start
 
@@ -88,8 +89,48 @@ class Deserializer:
         start = self.cursor
         tx, end = read_tx(self.view, self.cursor)
         self.cursor = end
-        return tx, double_sha256(self.view[start:end])
-
+        if tx.version != 10:
+            return tx, double_sha256(self.view[start:end])
+        else:
+            serialization = b''
+            T_version = tx.version.to_bytes(4, byteorder='little')
+            T_locktime = tx.locktime.to_bytes(4, byteorder='little')
+            T_input_count = len(tx.inputs).to_bytes(4, byteorder='little')
+            T_output_count = len(tx.outputs).to_bytes(4, byteorder='little')
+            # self.logger.info(f'this is my message=========================  T_version :{T_version.hex()}\n')
+            # self.logger.info(f'this is my message=========================  T_locktime :{T_locktime.hex()}\n')
+            # self.logger.info(f'this is my message=========================  T_input_count :{T_input_count.hex()}\n')
+            # self.logger.info(f'this is my message=========================  T_output_count :{T_output_count.hex()}\n')
+            serialization_1 = b''
+            serialization_2 = b''
+            serialization_3 = b''
+            for input in tx.inputs:
+                T_input_prev_hash = bytes(input.prev_hash)
+                T_input_prev_idx = input.prev_idx.to_bytes(4, byteorder='little')
+                T_input_sequence = input.sequence.to_bytes(4, byteorder='little')
+                serialization_1 = serialization_1 + T_input_prev_hash + T_input_prev_idx + T_input_sequence
+                T_input_script = bytes(input.script)
+                serialization_2 = serialization_2 + sha256(T_input_script)
+                # self.logger.info(f'this is my message=========================  T_input_prev_hash :{T_input_prev_hash.hex()}\n')
+                # self.logger.info(f'this is my message=========================  T_input_prev_idx  :{T_input_prev_idx.hex()}\n')
+                # self.logger.info(f'this is my message=========================  T_input_sequence :{T_input_sequence.hex()}\n')
+                # self.logger.info(f'this is my message=========================  T_input_script :{T_input_script.hex()}\n')
+            for output in tx.outputs:
+                T_amount = output.value.to_bytes(8, byteorder='little')
+                T_output_script = bytes(output.pk_script)
+                # self.logger.info(f'this is my message=========================  T_amount :{T_amount.hex()}\n')
+                # self.logger.info(f'this is my message=========================  T_output_script :{T_output_script.hex()}\n')
+                serialization_3 = serialization_3 + T_amount + sha256(T_output_script)
+            serialization = T_version + T_locktime + T_input_count + T_output_count + sha256(serialization_1) + sha256(serialization_2) + sha256(serialization_3)
+            # self.logger.info(f'this is my message=========================  serialization1 :{serialization_1.hex()}\n')
+            # self.logger.info(f'this is my message=========================  serialization1 hash:{sha256(serialization_1).hex()}\n')
+            # self.logger.info(f'this is my message=========================  serialization2 :{serialization_2.hex()}\n')
+            # self.logger.info(f'this is my message=========================  serialization2 hash:{sha256(serialization_2).hex()}\n')
+            # self.logger.info(f'this is my message=========================  serialization3 :{serialization_3.hex()}\n')
+            # self.logger.info(f'this is my message=========================  serialization3 hash:{sha256(serialization_3).hex()}\n')
+            # self.logger.info(f'this is my message=========================  serialization :{serialization.hex()}\n')
+            # self.logger.info(f'this is my message=========================  result :{double_sha256(serialization).hex()}\n')
+            return tx, double_sha256(serialization)
     def read_varint(self):
         value, self.cursor = read_varint(self.view, self.cursor)
         return value
