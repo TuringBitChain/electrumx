@@ -1200,6 +1200,17 @@ class ElectrumX(SessionBase):
         hashX = scripthash_to_hashX(scripthash)
         return await self.get_balance(hashX)
 
+    async def get_frozen_balance(self, hashX):
+        utxos = await self.db.all_frozen_utxos(hashX)
+        frozen_balance = sum(utxo.value for utxo in utxos)
+        self.bump_cost(1.0 + len(utxos) / 50)
+        return {'frozen_balance': frozen_balance}
+    
+    async def scripthash_get_frozen_balance(self, scripthash):
+        '''Return the frozen balance of a scripthash.'''
+        hashX = scripthash_to_hashX(scripthash)
+        return await self.get_frozen_balance(hashX)
+    
     async def unconfirmed_history(self, hashX):
         # Note unconfirmed history is unordered in electrum-server
         # height is -1 if it has unconfirmed inputs, otherwise 0
@@ -1518,6 +1529,7 @@ class ElectrumX(SessionBase):
             'blockchain.headers.subscribe': self.headers_subscribe,
             'blockchain.relayfee': self.relayfee,
             'blockchain.scripthash.get_balance': self.scripthash_get_balance,
+            'blockchain.scripthash.get_frozen_balance': self.scripthash_get_frozen_balance,
             'blockchain.scripthash.get_history': self.scripthash_get_history,
             'blockchain.scripthash.get_mempool': self.scripthash_get_mempool,
             'blockchain.scripthash.listunspent': self.scripthash_listunspent,

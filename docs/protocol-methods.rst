@@ -284,6 +284,34 @@ Return the confirmed and unconfirmed balances of a :ref:`script hash
     "unconfirmed": 23684400
   }
 
+blockchain.scripthash.get_frozen_balance
+=================================
+
+Return the confirmed and unconfirmed balances of a :ref:`script hash
+<script hashes>`.
+
+**Signature**
+
+  .. function:: blockchain.scripthash.get_frozen_balance(scripthash)
+  .. versionadded:: 1.1
+
+  *scripthash*
+
+    The script hash as a hexadecimal string.
+
+**Result**
+
+  A dictionary with keys `frozen_balance`.  The value of
+  each is the appropriate balance in minimum coin units (satoshis).
+
+**Result Example**
+
+::
+
+  {
+    "frozen_balance": 103873966
+  }
+
 blockchain.scripthash.get_history
 =================================
 

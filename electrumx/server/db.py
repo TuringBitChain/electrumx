@@ -567,7 +567,7 @@ class DB:
         self.write_utxo_state(self.utxo_db)
 
     async def all_utxos(self, hashX):
-        '''Return all UTXOs for an address sorted in no particular order.'''
+        '''Return all UTXOs except frozen ones for an address sorted in no particular order.'''
         def read_utxos():
             utxos = []
             utxos_append = utxos.append
@@ -585,6 +585,30 @@ class DB:
 
         while True:
             utxos = await run_in_thread(read_utxos)
+            if all(utxo.tx_hash is not None for utxo in utxos):
+                return utxos
+            self.logger.warning('all_utxos: tx hash not found (reorg?), retrying...')
+            await sleep(0.25)
+
+    async def all_frozen_utxos(self, hashX):
+        '''Return all forzen UTXOs for an address sorted in no particular order.'''
+        def read_all_frozen_utxos():
+            utxos = []
+            utxos_append = utxos.append
+            # Key: b'u' + address_hashX + tx_idx + tx_num
+            # Value: the UTXO value as a 64-bit unsigned integer
+            prefix = b'u' + hashX
+            for db_key, db_value in self.utxo_db.iterator(prefix=prefix):
+                tx_pos, = unpack_le_uint32(db_key[-9:-5])
+                tx_num, = unpack_le_uint64(db_key[-5:] + bytes(3))
+                value, = unpack_le_uint64(db_value)
+                tx_hash, height = self.fs_tx_hash(tx_num)
+                if height < 842189:
+                    utxos_append(UTXO(tx_num, tx_pos, tx_hash, height, value))
+            return utxos
+
+        while True:
+            utxos = await run_in_thread(read_all_frozen_utxos)
             if all(utxo.tx_hash is not None for utxo in utxos):
                 return utxos
             self.logger.warning('all_utxos: tx hash not found (reorg?), retrying...')
