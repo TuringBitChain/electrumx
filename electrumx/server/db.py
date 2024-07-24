@@ -579,7 +579,8 @@ class DB:
                 tx_num, = unpack_le_uint64(db_key[-5:] + bytes(3))
                 value, = unpack_le_uint64(db_value)
                 tx_hash, height = self.fs_tx_hash(tx_num)
-                utxos_append(UTXO(tx_num, tx_pos, tx_hash, height, value))
+                if height > 842190:
+                    utxos_append(UTXO(tx_num, tx_pos, tx_hash, height, value))
             return utxos
 
         while True:
