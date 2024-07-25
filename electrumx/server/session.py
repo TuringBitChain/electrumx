@@ -1226,7 +1226,7 @@ class ElectrumX(SessionBase):
         history, cost = await self.session_mgr.limited_history(hashX)
         self.bump_cost(cost)
         conf = [{'tx_hash': hash_to_hex_str(tx_hash), 'height': height}
-                for tx_hash, height in history]
+                for tx_hash, height in history if height > 824190]
         return conf + await self.unconfirmed_history(hashX)
 
     async def scripthash_get_history(self, scripthash):
