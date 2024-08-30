@@ -36,7 +36,7 @@ class Coin:
     RPC_URL_REGEX = re.compile('.+@(\\[[0-9a-fA-F:]+\\]|[^:]+)(:[0-9]+)?')
     VALUE_PER_COIN = 100000000
     SESSIONCLS = ElectrumX
-    DEFAULT_MAX_SEND = 1000000
+    DEFAULT_MAX_SEND = 5000000
     P2PKH_VERBYTE = bytes.fromhex("00")
     P2SH_VERBYTES = [bytes.fromhex("05")]
     RPC_PORT = 8332
