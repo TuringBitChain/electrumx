@@ -836,6 +836,7 @@ class SessionManager:
 
         if isinstance(result, Exception):
             raise result
+        result = result[:300]
         return result, cost
 
     async def _notify_sessions(self, height, touched):
@@ -1205,12 +1206,12 @@ class ElectrumX(SessionBase):
         frozen_balance = sum(utxo.value for utxo in utxos)
         self.bump_cost(1.0 + len(utxos) / 50)
         return {'frozen_balance': frozen_balance}
-    
+
     async def scripthash_get_frozen_balance(self, scripthash):
         '''Return the frozen balance of a scripthash.'''
         hashX = scripthash_to_hashX(scripthash)
         return await self.get_frozen_balance(hashX)
-    
+
     async def unconfirmed_history(self, hashX):
         # Note unconfirmed history is unordered in electrum-server
         # height is -1 if it has unconfirmed inputs, otherwise 0
