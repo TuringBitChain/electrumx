@@ -836,7 +836,7 @@ class SessionManager:
 
         if isinstance(result, Exception):
             raise result
-        result = result[:300]
+        # result = result[:300]
         return result, cost
 
     async def _notify_sessions(self, height, touched):
@@ -1173,7 +1173,7 @@ class ElectrumX(SessionBase):
         effects.'''
         utxos = await self.db.all_utxos(hashX)
         utxos = sorted(utxos)
-        utxos = utxos[:1000]
+        utxos = utxos[:9000]
         utxos.extend(await self.mempool.unordered_UTXOs(hashX))
         self.bump_cost(1.0 + len(utxos) / 50)
         spends = await self.mempool.potential_spends(hashX)
