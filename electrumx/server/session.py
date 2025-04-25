@@ -828,7 +828,7 @@ class SessionManager:
             result = self._history_cache[hashX]
             self._history_hits += 1
         except KeyError:
-            result = await self.db.limited_history(hashX, limit=limit)
+            result = await self.db.limited_history(hashX, limit=10000)
             cost += 0.1 + len(result) * 0.001
             if len(result) >= limit:
                 result = RPCError(BAD_REQUEST, 'history too large', cost=cost)
