@@ -193,7 +193,7 @@ class History(object):
         limit to None to get them all.  '''
         limit = util.resolve_limit(limit)
         chunks = util.chunks
-        for _key, hist in self.db.iterator(prefix=hashX):
+        for _key, hist in self.db.iterator(prefix=hashX, reverse=True):
             for tx_numb in chunks(hist, 5):
                 if limit == 0:
                     return
