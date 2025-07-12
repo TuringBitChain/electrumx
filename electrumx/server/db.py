@@ -435,7 +435,9 @@ class DB:
             tx_nums = list(self.history.get_txnums(hashX, limit))
             tx_nums.reverse()
             fs_tx_hash = self.fs_tx_hash
-            return [fs_tx_hash(tx_num) for tx_num in tx_nums]
+            history = [fs_tx_hash(tx_num) for tx_num in tx_nums]
+            history.sort(key=lambda x: x[1] if x[1] is not None else float('inf'))
+            return history
 
         while True:
             history = await run_in_thread(read_history)
