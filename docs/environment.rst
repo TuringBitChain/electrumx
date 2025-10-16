@@ -267,6 +267,30 @@ These environment variables are optional:
   function of :envvar:`COIN` and :envvar:`NET`; for Bitcoin mainnet it
   is 200.
 
+.. envvar:: SKIP_HEIGHT
+
+  Blocks below this height will be processed with minimal data, containing
+  only the block header and a single coinbase transaction. This is useful
+  for chains like BSV where early blocks contain large amounts of junk data
+  that you want to skip during initial sync. Set to 0 (the default) to
+  disable this feature and process all blocks normally.
+  
+  When this is set, ElectrumX will still scan from height 0, but blocks
+  below SKIP_HEIGHT will not fetch full block data from the node, instead
+  creating minimal block files with only essential information. This
+  significantly speeds up initial sync for chains with large historical
+  blocks.
+  
+  **Pruned Node Support**: This feature works seamlessly with pruned nodes.
+  If the node doesn't have historical block headers (due to pruning),
+  ElectrumX will automatically create dummy headers with estimated timestamps
+  and continue processing. This allows you to use a pruned node that only
+  keeps blocks from SKIP_HEIGHT onwards.
+  
+  **Warning**: Using this feature means your ElectrumX instance will not
+  have complete transaction data for blocks below SKIP_HEIGHT. This may
+  affect certain historical queries.
+
 .. envvar:: EVENT_LOOP_POLICY
 
   The name of an event loop policy to replace the default asyncio

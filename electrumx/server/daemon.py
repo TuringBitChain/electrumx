@@ -37,7 +37,7 @@ class Daemon(object):
     WARMING_UP = -28
     id_counter = itertools.count()
 
-    def __init__(self, coin, url, *, init_retry=0.25, max_retry=4.0):
+    def __init__(self, coin, url, *, skip_height=0, init_retry=0.25, max_retry=4.0):
         self.coin = coin
         self.logger = class_logger(__name__, self.__class__.__name__)
         self.url_index = None
@@ -52,6 +52,9 @@ class Daemon(object):
         self._height = None
         self.available_rpcs = {}
         self.session = None
+        self.skip_height = skip_height
+        if skip_height > 0:
+            self.logger.info(f'blocks below height {skip_height:,d} will use minimal data')
 
     async def __aenter__(self):
         self.session = aiohttp.ClientSession(connector=self.connector())
@@ -209,9 +212,83 @@ class Daemon(object):
         params_iterable = ((h, ) for h in range(first, first + count))
         return await self._send_vector('getblockhash', params_iterable)
 
-    async def get_block(self, hex_hash, filename):
+    async def get_block(self, hex_hash, filename, height=None):
+        # If height is below skip_height, create a minimal block file
+        if height is not None and 0 < self.skip_height and height < self.skip_height:
+            return await self._create_minimal_block(hex_hash, filename, height)
         rest_url = f'rest/block/{hex_hash}.bin'
         return await self._send(self._get_to_file, rest_url, filename)
+
+    async def _create_minimal_block(self, hex_hash, filename, height):
+        '''Create a minimal block file with only header and a coinbase transaction.
+        
+        For pruned nodes that don't have historical block headers, creates a dummy header.
+        '''
+        # Try to get block header from node (80 bytes)
+        # For pruned nodes, this will fail for old blocks
+        header = None
+        try:
+            header_hex = await self._send_single('getblockheader', (hex_hash, False))
+            header = hex_to_bytes(header_hex)
+            if height % 10000 == 0:
+                self.logger.info(f'got header for height {height:,d} from node')
+        except (DaemonError, Exception) as e:
+            # Pruned node doesn't have this block's header, create a dummy one
+            if height % 10000 == 0:
+                self.logger.info(f'creating dummy header for height {height:,d} (pruned node)')
+            
+            # Create a dummy 80-byte block header
+            # Structure: version(4) + prev_hash(32) + merkle_root(32) + timestamp(4) + bits(4) + nonce(4)
+            block_version = b'\x01\x00\x00\x00'  # version 1
+            prev_block_hash = b'\x00' * 32  # dummy prev hash
+            merkle_root = hex_to_bytes(hex_hash)  # use block hash as merkle root
+            # Estimate timestamp: genesis time + height * 10 minutes
+            # BSV genesis: 1231006505 (2009-01-03)
+            estimated_timestamp = 1231006505 + (height * 600)
+            timestamp = estimated_timestamp.to_bytes(4, 'little')
+            bits = b'\xff\xff\x00\x1d'  # default difficulty bits
+            nonce = b'\x00\x00\x00\x00'  # dummy nonce
+            
+            header = block_version + prev_block_hash + merkle_root + timestamp + bits + nonce
+        
+        # Create a minimal coinbase transaction
+        # Minimal coinbase: version=1, 1 input (null hash, index 0xFFFFFFFF, script with height, sequence 0xFFFFFFFF),
+        # 1 output (0 value, empty script), locktime=0
+        tx_version = b'\x01\x00\x00\x00'  # version 1
+        input_count = b'\x01'  # 1 input
+        input_txid = b'\x00' * 32  # null hash for coinbase
+        input_vout = b'\xff\xff\xff\xff'  # -1 for coinbase
+        
+        # Encode height in scriptSig (BIP34)
+        if height < 17:
+            script_sig = bytes([0x50 + height])  # OP_1 to OP_16
+            script_sig_len = bytes([len(script_sig)])
+        else:
+            # Compact integer encoding
+            script_sig = height.to_bytes((height.bit_length() + 7) // 8, 'little')
+            script_sig_len = bytes([len(script_sig)])
+        
+        sequence = b'\xff\xff\xff\xff'
+        output_count = b'\x01'  # 1 output
+        output_value = b'\x00' * 8  # 0 satoshis
+        output_script_len = b'\x00'  # empty script
+        locktime = b'\x00\x00\x00\x00'
+        
+        # Assemble coinbase transaction
+        coinbase_tx = (tx_version + input_count + input_txid + input_vout + 
+                       script_sig_len + script_sig + sequence + 
+                       output_count + output_value + output_script_len + locktime)
+        
+        # Assemble minimal block: header + tx_count + coinbase_tx
+        tx_count = b'\x01'  # 1 transaction
+        block_data = header + tx_count + coinbase_tx
+        
+        # Write to file
+        async with self.block_semaphore:
+            with open_truncate(filename) as f:
+                await run_in_thread(f.write, block_data)
+        
+        return len(block_data)
 
     async def mempool_hashes(self):
         '''Update our record of the daemon's mempool hashes.'''

@@ -227,7 +227,7 @@ class OnDiskBlock:
             to be removed when the server starts up.'''
             try:
                 filename = cls.filename(hex_hash, height)
-                size = await daemon.get_block(hex_hash, filename)
+                size = await daemon.get_block(hex_hash, filename, height)
                 cls.blocks[hex_hash] = (height, size)
                 if kind == 'new':
                     logger.info(f'fetched new block height {height:,d} hash {hex_hash}')

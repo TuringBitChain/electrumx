@@ -70,6 +70,7 @@ class Env(EnvBase):
         self.drop_client = self.custom("DROP_CLIENT", None, re.compile)
         self.cache_MB = self.integer('CACHE_MB', 1200)
         self.reorg_limit = self.integer('REORG_LIMIT', self.coin.REORG_LIMIT)
+        self.skip_height = self.integer('SKIP_HEIGHT', 824190)
 
         # Server limits to help prevent DoS
 

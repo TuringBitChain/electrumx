@@ -96,7 +96,7 @@ class Controller(ServerBase):
 
         notifications = Notifications()
 
-        async with Daemon(env.coin, env.daemon_url) as daemon:
+        async with Daemon(env.coin, env.daemon_url, skip_height=env.skip_height) as daemon:
             db = DB(env)
             bp = block_proc.BlockProcessor(env, db, daemon, notifications)
 
